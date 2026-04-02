@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && (request.auth.token.superadmin == true || request.auth.token.role == 'superadmin');
+    }
+
+    match /profile-images/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) || isSuperAdmin();
+    }
+
+    match /resumes/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) || isSuperAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
