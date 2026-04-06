@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function hasSuperAdminClaim() {
+      return signedIn() && (request.auth.token.superadmin == true || request.auth.token.role == 'superadmin');
+    }
+
+    function hasSuperAdminDocRole() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
+    function isSuperAdmin() {
+      return hasSuperAdminClaim() || hasSuperAdminDocRole();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == userId &&
+        !('role' in request.resource.data) &&
+        !('superadmin' in request.resource.data);
+      allow update: if (
+          isOwner(userId) &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.superadmin == resource.data.superadmin
+        ) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+
+      match /settings/{docId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    match /workflow_states/{userId} {
+      allow read, write: if isOwner(userId) || isSuperAdmin();
+    }
+
+    match /applications/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /tasks/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /tailored_resumes/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /dispatch/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /searched/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /applied/{docId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow update, delete: if signedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
